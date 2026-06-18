@@ -1,0 +1,5 @@
+cycle_id,leg_type,entry_ts,exit_ts,side,tier,leverage,notional,size,price,exit_price,exit_reason,pnl_usd,pnl_pct,cum_size_after,cum_avg_entry,cum_notional_after,rsi_at_entry,macd_hist_at_entry,adx_at_entry,fg_at_entry,funding_at_entry,oi_delta_24h_pct,social_delta_24h_pct,divergence,bars_since_open,bars_since_last_event
+C0001,open,2026-06-07 12:10:00+00:00,,long,B,15.0,150000.0,92.952557,1613.7265,,,0.0,0.0,92.952557,1613.7265,150000.0,28.54,-1.4325,40.68,12.0,-0.006,0.67,697.46,no_data,0,0
+C0001,close,2026-06-07 12:10:00+00:00,2026-06-07 12:10:00+00:00,long,B,15.0,149850.07,92.952557,1613.7265,1612.1135,macd_rev,-2306.5678,-1.4993,0.0,1613.7265,0.0,0.0,0.0,0.0,50.0,0.0,0.0,0.0,no_data,1,0
+C0002,open,2026-06-08 04:05:00+00:00,,long,B,7.5,57250.74,34.268032,1670.6749,,,0.0,0.0,34.268032,1670.6749,57250.74,33.73,-1.1647,41.05,8.0,0.0105,-1.22,-76.61,no_data,0,0
+C0002,close,2026-06-08 04:05:00+00:00,2026-06-08 04:05:00+00:00,long,B,7.5,57193.52,34.268032,1670.6749,1669.0051,macd_rev,-451.6144,-0.7496,0.0,1670.6749,0.0,0.0,0.0,0.0,50.0,0.0,0.0,0.0,no_data,1,0

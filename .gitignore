@@ -1,0 +1,21 @@
+.cache/
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# Environment & secrets — never commit
+.env
+.env.*
+*.env
+secrets/
+*.key
+*.pem
+*.secret
+api_keys*
+credentials*
+config.local.*
+
+# Data
+data/*.csv
+!data/.gitkeep
