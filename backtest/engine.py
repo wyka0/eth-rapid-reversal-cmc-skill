@@ -81,6 +81,7 @@ class Cycle:
     max_size: float = 0.0
     high_water_mark: float = 0.0
     trailing_active: bool = False
+    momentum_confirmed: bool = False
     exit_ts: Optional[pd.Timestamp] = None
     exit_price: Optional[float] = None
     exit_reason: Optional[str] = None
@@ -124,16 +125,16 @@ DEFAULT_PARAMS = {
     "macd_signal": 9,
     "ema_trend": 50,
     "adx_period": 14,
-    "adx_threshold": 20,
+    "adx_threshold": 15,
     "base_leverage": 15.0,
     "sl_pct": 0.010,
     "trail_distance_pct": 0.003,
     "trail_activation_pct": 0.005,
     "bollinger_period": 20,
     "bollinger_std": 2.0,
-    "bollinger_proximity": 0.002,
+    "bollinger_proximity": 0.015,
     "volume_period": 20,
-    "volume_multiplier": 1.2,
+    "volume_multiplier": 1.0,
     "risk_per_trade": 0.015,
     "dd_circuit_pct": 0.10,
     "dd_circuit_halve_trades": 10,
@@ -337,7 +338,7 @@ class BacktestEngine:
                         div = divergence_signal(soc_d, oi_d, p["divergence_social_threshold_pct"], p["divergence_oi_threshold_pct"])
                         div_dist[div] = div_dist.get(div, 0) + 1
                         tier = self._tier(rsi_v, mh, mh_prev, mh_prev2, fg_align, div, side, p)
-                        lev = p["base_leverage"] * (0.5 if dd_breaker_active else 1.0)
+                        lev = p["base_leverage"]
                         fund_mult = funding_modifier(funding_v, side)
                         if fund_mult == 0.5:
                             funding_size_halves += 1
@@ -346,8 +347,16 @@ class BacktestEngine:
                             side = None
                         if side is not None:
                             entry_px = c * (1 + p["slippage_pct"]) if side == "long" else c * (1 - p["slippage_pct"])
-                            size_notional = equity_base * p["risk_per_trade"] / p["sl_pct"] * lev * fund_mult
-                            size_notional = min(size_notional, equity * lev * fund_mult)
+                            # Risk-based sizing (spec section 9): risk `risk_per_trade` of equity at a
+                            # `sl_pct` price stop. `base_leverage` is the notional cap (15x) and rarely
+                            # binds under the default 1.5% risk / 1.0% stop (-> ~1.5x effective). The DD
+                            # circuit breaker halves the deployed size (real risk reduction, since the
+                            # cap does not bind). Leverage is baked into the notional, so PnL must NOT
+                            # be multiplied by leverage again downstream.
+                            risk_mult = 0.5 if dd_breaker_active else 1.0
+                            raw_notional = equity_base * p["risk_per_trade"] / p["sl_pct"] * risk_mult
+                            cap_notional = equity * lev
+                            size_notional = min(raw_notional, cap_notional) * fund_mult
                             size_eth = size_notional / entry_px
                             commission = size_notional * p["commission_pct"]
                             equity -= commission
@@ -414,14 +423,23 @@ class BacktestEngine:
                         hwm_candidate = min(l, current.high_water_mark)
                 current.high_water_mark = hwm_candidate
 
-                # Compute ROE on cum position (mark-to-market)
+                # Price move on the blended position (unleveraged). Leverage lives in the
+                # notional sizing, so thresholds (SL / trail activation) are price moves,
+                # matching the worked example in SKILL.md section 5.
                 if current.side == "long":
-                    roe = (c - current.avg_entry) / current.avg_entry * current.leverage
+                    pm = (c - current.avg_entry) / current.avg_entry
                 else:
-                    roe = (current.avg_entry - c) / current.avg_entry * current.leverage
+                    pm = (current.avg_entry - c) / current.avg_entry
 
-                # Activate trailing stop once in profit enough
-                if roe >= p["trail_activation_pct"]:
+                # Track whether momentum has confirmed in the trade direction. This guards the
+                # MACD-reversal exit: a mean-reversion long taken at deep oversold has a negative
+                # histogram by construction, so we must not exit on "histogram adverse" until
+                # momentum had actually confirmed in our favour first.
+                if (current.side == "long" and mh > 0) or (current.side == "short" and mh < 0):
+                    current.momentum_confirmed = True
+
+                # Activate trailing stop once in profit enough (price-move threshold)
+                if pm >= p["trail_activation_pct"]:
                     current.trailing_active = True
 
                 # Calculate trailing stop level
@@ -437,7 +455,7 @@ class BacktestEngine:
                 reason = None
 
                 # 1. Hard SL (only if trailing not yet active)
-                if not current.trailing_active and roe <= -p["sl_pct"]:
+                if not current.trailing_active and pm <= -p["sl_pct"]:
                     exit_px = c
                     reason = "sl"
 
@@ -455,13 +473,16 @@ class BacktestEngine:
                     exit_px = c
                     reason = "ranging_close"
 
-                # 4. MACD reversal (momentum gone)
-                if exit_px is None and (
-                    (current.side == "long" and mh < 0 and mh_prev < 0) or
-                    (current.side == "short" and mh > 0 and mh_prev > 0)
-                ):
-                    exit_px = c
-                    reason = "macd_rev"
+                # 4. MACD reversal — 3 consecutive bars against the position, but ONLY after
+                #    momentum had confirmed in the trade direction (spec section 8).
+                if exit_px is None and current.momentum_confirmed:
+                    adverse = (
+                        (current.side == "long" and mh < 0 and mh_prev < 0 and mh_prev2 < 0)
+                        or (current.side == "short" and mh > 0 and mh_prev > 0 and mh_prev2 > 0)
+                    )
+                    if adverse:
+                        exit_px = c
+                        reason = "macd_rev"
 
                 # 5. Time stop
                 if exit_px is None and current.bars_held >= p["time_stop_bars"]:
@@ -484,7 +505,7 @@ class BacktestEngine:
                     fg_align = fear_greed_alignment(self._get_fg(fg_daily, ts), current.side)
                     bars_since_last = (ts - current.last_event_ts).total_seconds() / 300.0 if current.last_event_ts else 999
                     if (
-                        roe > 0
+                        pm > 0
                         and macd_continues
                         and price_move >= p["rolling_min_profit_pct"]
                         and adx_v >= p["adx_threshold"]
@@ -625,9 +646,11 @@ class BacktestEngine:
         else:
             exit_adj = exit_px * (1 + p["slippage_pct"])
             ret = 1.0 - exit_adj / cycle.avg_entry
-        roe = ret * cycle.leverage
+        # PnL on the blended position. Leverage is already baked into the notional sizing
+        # (position sized off risk_per_trade / sl_pct, capped at base_leverage x equity), so
+        # multiplying by leverage again here would double-count it (the original bug).
         notional = cycle.cum_size * exit_adj
-        pnl = notional * roe - notional * p["commission_pct"]
+        pnl = notional * ret - notional * p["commission_pct"]
         commission = notional * p["commission_pct"]
         cycle.total_pnl += pnl
         cycle.total_commission += commission
@@ -645,7 +668,7 @@ class BacktestEngine:
             exit_price=exit_adj,
             exit_reason=reason,
             pnl_usd=pnl,
-            pnl_pct=roe * 100,
+            pnl_pct=ret * 100,
             cum_size_after=0.0,
             cum_avg_entry=cycle.avg_entry,
             cum_notional_after=0.0,

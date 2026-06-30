@@ -31,6 +31,18 @@ CMC_BASE = "https://api.coinmarketcap.com"  # the CoinMarketCap Pro API
 
 Works on **Windows (PowerShell)**, **macOS**, and **Linux (bash)**. All commands use `python -m` to avoid PATH issues.
 
+### One-command demo (no API key needed — deterministic synthetic data)
+
+```bash
+python demo.py
+```
+
+Prints a presentation-ready summary (headline metrics, exit-reason distribution,
+adds distribution, ASCII equity curve) and writes all artifacts to
+`backtest/results/`. This is the fastest path to see the strategy work end-to-end.
+
+### Full backtest
+
 ```bash
 # 0. Clone the repo and enter the skill directory
 git clone https://github.com/wyka0/eth-rapid-reversal-cmc-skill.git
@@ -48,13 +60,54 @@ export CMC_API_KEY=your_key_here
 # 3. Run a 30-day backtest on ETH/USDC
 python backtest/run_backtest.py --days 30 --equity 10000
 
-# 4. Run unit tests (use python -m pytest to avoid PATH issues)
+# 4. Robustness: parameter sweep + multi-window stability
+python backtest/sweep.py --days 30 --source synthetic --windows 2
+
+# 5. Run unit tests (use python -m pytest to avoid PATH issues)
 python -m pytest tests/ -v
 ```
 
 If `pytest` is installed system-wide, `pytest tests/ -v` also works. The `python -m pytest` form is the safest cross-platform option.
 
-If `CMC_API_KEY` is not set, the backtest falls back to a deterministic synthetic ETH price series (clearly labeled in output). **The submission assumes production deployment against the live CMC AI Agent Hub.**
+If `CMC_API_KEY` is not set, the backtest falls back to a deterministic synthetic ETH price series (clearly labeled in output). With a previously-fetched cache present, the loader reuses the real-ETH snapshot offline (with an age warning) instead of silently swapping to synthetic. **The submission assumes production deployment against the live CMC AI Agent Hub.**
+
+## Reproducible baseline (30d, synthetic)
+
+The committed `backtest/results/` were generated with `python demo.py` (deterministic synthetic ETH, no API key) so any judge can reproduce them exactly:
+
+| Metric | Value |
+|---|---|
+| Cycles | 20 |
+| Total return | +5.27% |
+| Max drawdown | -3.40% |
+| Sharpe (daily) | 4.92 |
+| Cycle win rate | 75.0% |
+| Profit factor | 2.47 |
+| Pay-off ratio | 0.82 |
+| Exits via trailing stop | 15 / 20 |
+
+On the cached real-ETH snapshot (supplementary, `--source cmc` without a key):
++6.32%, MaxDD -2.65%, 14 cycles, 78.6% win rate. See `backtest/results/sweep.md`
+for the parameter-sweep and multi-window stability tables.
+
+## CMC AI Agent Hub data layer
+
+`backtest/agent_hub.py` documents the single data dependency. Every field the
+strategy touches maps to one CMC Agent Hub concept, reachable over REST / MCP /
+x402 / CLI:
+
+```
+OHLCV 5m / 15m / 1h      | Cryptocurrency OHLCV historical            | REST / MCP / x402 / CLI
+Fear & Greed Index       | Fear & Greed historical                    | REST / MCP / x402 / CLI
+Funding rate (8h)        | Derivatives funding-rate historical        | REST / MCP / x402 / CLI
+Open interest (1h)       | Derivatives open-interest historical       | REST / MCP / x402 / CLI
+Social mentions (1h)     | Social stats / mentions historical         | REST / MCP / x402 / CLI
+```
+
+`data_loader.py` implements the REST surface (the Python-accessible interface
+to the same data the Agent Hub serves over MCP / x402 / CLI). To swap in MCP or
+x402, replace the body of the `load_*` functions with the equivalent tool call —
+the strategy and engine are surface-agnostic and consume plain pandas objects.
 
 ## Backtest Output
 
@@ -67,6 +120,7 @@ Running the backtest produces four artifacts in `backtest/results/`:
 | `equity_curve.csv` | Bar-by-bar equity series |
 | `equity_curve.png` | Equity plot |
 | `report.md` | Full performance report with all metrics, tier breakdowns, exit-reason distribution |
+| `sweep.md` / `sweep.json` | Parameter-sweep + multi-window stability tables (robustness) |
 
 ## Backtest Parameters (defaults)
 
@@ -94,19 +148,23 @@ Running the backtest produces four artifacts in `backtest/results/`:
 eth-rapid-reversal/
 ├── SKILL.md                    # the strategy spec (this is the CMC Skill)
 ├── README.md                   # you are here
+├── demo.py                     # one-command demo (deterministic, no API key)
 ├── LICENSE                     # MIT
 ├── requirements.txt
 ├── backtest/
+│   ├── agent_hub.py            # CMC Agent Hub data-layer mapping (single dependency)
 │   ├── indicators.py           # RSI / MACD / ADX / EMA / BB / volume (pure pandas)
-│   ├── data_loader.py          # CMC AI Agent Hub fetch (sole data source)
+│   ├── data_loader.py          # CMC AI Agent Hub fetch (REST surface, cache-aware)
 │   ├── engine.py               # walk-forward simulator with trailing stop + rolling compound
 │   ├── metrics.py              # Sharpe / DD / cycle metrics
 │   ├── run_backtest.py         # CLI entry — produces results/ output
-│   └── results/                # generated artifacts
+│   ├── sweep.py                # parameter sweep + multi-window stability
+│   └── results/                # generated artifacts (trades, cycles, equity, report, sweep)
 ├── notebooks/
 │   └── walkthrough.ipynb       # signal walkthrough on a single day
 └── tests/
-    └── test_indicators.py      # 16 unit tests
+    ├── test_indicators.py      # 16 indicator unit tests
+    └── test_engine.py          # 6 engine signal-logic + regression tests
 ```
 
 ## Honest Limits

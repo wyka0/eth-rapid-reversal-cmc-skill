@@ -111,12 +111,12 @@ def main() -> int:
     if args.source == "synthetic":
         import os
         os.environ.pop("CMC_API_KEY", None)
+        os.environ["CMC_FORCE_SYNTHETIC"] = "1"
 
     print(f"[1/4] Loading {args.days}d of 5m + 15m ETH data (source={args.source})...")
     if args.source == "csv":
         csv = Path("data") / f"eth_5m.csv"
         if csv.exists():
-            import pandas as pd
             df_5m = pd.read_csv(csv, parse_dates=["timestamp"])
             df_15m = pd.read_csv(Path("data") / f"eth_15m.csv", parse_dates=["timestamp"]) if (Path("data") / "eth_15m.csv").exists() else df_5m
         else:
@@ -202,9 +202,9 @@ def main() -> int:
 | **Pay-off Ratio** | **{metrics.get('pay_off_ratio', 0):.2f}** |
 | Avg Cycle Hold | {metrics.get('cycle_avg_hold_hours', 0):.1f} h |
 
-## Tier-Reached Distribution
+## Exit-Reason Distribution
 
-How many cycles reached each tier before closing (tier1=first reduce triggered, tier3=after seed, full_close=hit final TP or exit):
+How many cycles closed via each exit path (trail_sl / sl / ranging_close / macd_rev / time_stop / end_of_data):
 
 ```json
 {json.dumps(metrics.get('exit_reason_distribution', {}), indent=2)}
@@ -236,10 +236,10 @@ How many adds each cycle had (0 = no adds, 5 = maxed out):
 {json.dumps(metrics.get('leg_type_breakdown', {}), indent=2)}
 ```
 
-## Exit Reasons
+## Exit Reasons (cycle counts)
 
 ```json
-{json.dumps(metrics.get('exit_reasons', {}), indent=2)}
+{json.dumps(metrics.get('exit_reason_distribution', {}), indent=2)}
 ```
 
 ## Divergence Distribution (signals evaluated)
