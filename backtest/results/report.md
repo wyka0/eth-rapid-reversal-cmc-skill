@@ -2,35 +2,35 @@
 
 | Field | Value |
 |---|---|
-| Run (UTC) | 2026-06-30T20:23:50.759923+00:00 |
+| Run (UTC) | 2026-06-30T20:48:13.842447+00:00 |
 | Window | 30 days |
 | Source | synthetic |
 | Starting equity | $10,000.00 |
-| Final equity | $10,526.93 |
-| Peak equity | $10,795.61 |
-| Max drawdown | -3.40% |
-| Max DD duration | 2581 days |
+| Final equity | $10,484.54 |
+| Peak equity | $10,753.21 |
+| Max drawdown | -3.41% |
+| Max DD duration | 8.972222222222221 days |
 | Daily-loss halts | 0 |
-| Funding skips (hostile) | 46 |
+| Funding skips (hostile) | 45 |
 | Funding halves (crowded) | 9 |
 
 ## Headline Cycle Metrics
 
 | Metric | Value |
 |---|---|
-| Total Return | 5.27% |
-| Annualized Return | 90.85% |
-| Sharpe (daily, rf=0) | 4.92 |
-| Sortino | 246.13 |
-| Calmar | 26.74 |
+| Total Return | 4.85% |
+| Annualized Return | 81.40% |
+| Sharpe (daily, rf=0) | 4.73 |
+| Sortino | 225.52 |
+| Calmar | 23.86 |
 | Cycles (full trades) | 20 |
-| Legs (executions) | 48 |
-| Cycle Win Rate | 75.0% |
-| Cycle Profit Factor | 2.47 |
-| Avg Cycle Win | $69.36 |
-| Avg Cycle Loss | $-84.09 |
-| **Pay-off Ratio** | **0.82** |
-| Avg Cycle Hold | 0.8 h |
+| Legs (executions) | 47 |
+| Cycle Win Rate | 70.0% |
+| Cycle Profit Factor | 2.32 |
+| Avg Cycle Win | $72.58 |
+| Avg Cycle Loss | $-73.11 |
+| **Pay-off Ratio** | **0.99** |
+| Avg Cycle Hold | 0.9 h |
 
 ## Exit-Reason Distribution
 
@@ -38,8 +38,8 @@ How many cycles closed via each exit path (trail_sl / sl / ranging_close / macd_
 
 ```json
 {
-  "trail_sl": 15,
-  "macd_rev": 2,
+  "macd_rev": 3,
+  "trail_sl": 14,
   "ranging_close": 1,
   "sl": 2
 }
@@ -51,8 +51,8 @@ How many adds each cycle had (0 = no adds, 5 = maxed out):
 
 ```json
 {
-  "0": 13,
-  "1": 6,
+  "0": 14,
+  "1": 5,
   "2": 1,
   "3": 0,
   "4": 0,
@@ -66,8 +66,8 @@ How many adds each cycle had (0 = no adds, 5 = maxed out):
 {
   "short": {
     "n": 20,
-    "total_pnl": 619.934776896814,
-    "avg_pnl": 30.99673884484069
+    "total_pnl": 577.5401265462425,
+    "avg_pnl": 28.877006327312124
   }
 }
 ```
@@ -77,14 +77,14 @@ How many adds each cycle had (0 = no adds, 5 = maxed out):
 ```json
 {
   "B": {
-    "n": 15,
-    "total_pnl": 229.86814424507702,
-    "avg_pnl": 15.324542949671802
+    "n": 16,
+    "total_pnl": 211.66637817050923,
+    "avg_pnl": 13.229148635656829
   },
   "C": {
-    "n": 5,
-    "total_pnl": 390.0666326517369,
-    "avg_pnl": 78.01332653034737
+    "n": 4,
+    "total_pnl": 365.87374837573316,
+    "avg_pnl": 91.46843709393329
   }
 }
 ```
@@ -95,20 +95,9 @@ How many adds each cycle had (0 = no adds, 5 = maxed out):
 {
   "close": {
     "n": 20,
-    "total_pnl": 619.934776896814,
-    "avg_pnl": 30.99673884484069
+    "total_pnl": 577.5401265462425,
+    "avg_pnl": 28.877006327312124
   }
-}
-```
-
-## Exit Reasons (cycle counts)
-
-```json
-{
-  "trail_sl": 15,
-  "macd_rev": 2,
-  "ranging_close": 1,
-  "sl": 2
 }
 ```
 
@@ -119,7 +108,7 @@ How many adds each cycle had (0 = no adds, 5 = maxed out):
   "bullish_divergence": 0,
   "bearish_divergence": 0,
   "confirmation": 0,
-  "no_data": 66
+  "no_data": 65
 }
 ```
 

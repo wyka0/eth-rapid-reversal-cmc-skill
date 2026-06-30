@@ -38,14 +38,24 @@ def compute_metrics(
     peak = equity.cummax()
     dd = (equity - peak) / peak
     max_dd = float(dd.min())
-    max_dd_dur_days = 0
-    cur = 0
-    for v in dd:
-        if v < 0:
-            cur += 1
-            max_dd_dur_days = max(max_dd_dur_days, cur)
+    # Drawdown duration in *days*, computed from the equity index timestamps.
+    # (Counting consecutive negative bars and labelling them "days" was the old
+    # bug: a 30d 5m backtest reported "2581 days" of drawdown.)
+    max_dd_dur_days = 0.0
+    cur_start = None
+    idx = equity.index
+    for k in range(len(dd)):
+        if dd.iloc[k] < 0:
+            if cur_start is None:
+                cur_start = idx[k]
         else:
-            cur = 0
+            if cur_start is not None:
+                dur = (idx[k] - cur_start).total_seconds() / 86400.0
+                max_dd_dur_days = max(max_dd_dur_days, dur)
+                cur_start = None
+    if cur_start is not None:
+        dur = (idx[-1] - cur_start).total_seconds() / 86400.0
+        max_dd_dur_days = max(max_dd_dur_days, dur)
     calmar = float(annual_return / abs(max_dd)) if max_dd < 0 else 0.0
 
     n_cycles = len(cycles)

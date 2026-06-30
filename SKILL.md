@@ -57,7 +57,7 @@ For local development without a CMC API key, `backtest/data_loader.py` falls bac
 | Funding skip | >0.10%/8h blocks, >0.05% halves | |
 | Risk per trade | 1.5% of equity | |
 | Daily loss limit | -5% of starting-day equity | Halt until next UTC day |
-| DD circuit breaker | -10% peak-to-trough | Halve leverage for next 10 trades |
+| DD circuit breaker | -10% peak-to-trough | Halve deployed size for next 10 trades |
 | **Rolling compound max** | **5 additions** | Per cycle, profit-funded |
 | Time stop | 8h since Open | Force close |
 
@@ -179,14 +179,18 @@ This is the **primary loss-control mechanism** — converts what would be a slow
 3. **Immediate ranging exit** (ADX < 15) → full close
 4. **MACD reversal** (3 consecutive bars against position) → full close
 5. **Time stop** (8h since Open) → full close
-6. **Funding hostile flip** → reduce leverage by 50% on next entry
-7. **Daily loss limit** (-5% day) → halt all new entries until next UTC day
+6. **Daily loss limit** (-5% day) → halt all new entries until next UTC day
+
+> Note: funding hostility is enforced at *entry* and *rolling-add* time (the
+> `funding_modifier` halves or zeroes size for crowded-side entries), not as a
+> mid-trade exit. A position already open is held to its trailing/SL/ranging
+> exit; the funding guard prevents adding *new* risk in a hostile regime.
 
 ## 9. Compounding & Drawdown
 
 - Notional = `equity * 0.015 / 0.010` ≈ 1.5× equity (1.5% risk, 1.0% stop); leverage cap 15× enforced
 - After each cycle close: `equity_base += realized_pnl`
-- **Circuit breaker** at -10% peak-to-trough: halve leverage for next 10 trades, resume after 5 consecutive non-stop-out trades
+- **Circuit breaker** at -10% peak-to-trough: halve deployed size for next 10 trades, resume after 5 consecutive non-stop-out trades
 - **Daily loss limit**: -5% of starting-day equity → halt until next UTC day
 - **Per-trade risk** is computed on the initial Open notional; rolling Adds do not increase risk (they use unrealized PnL as buffer)
 
@@ -217,7 +221,7 @@ This is the **primary loss-control mechanism** — converts what would be a slow
 - Cycle win rate, profit factor, pay-off ratio, avg cycle hold
 - Equity curve PNG
 - Per-side breakdown (long vs short)
-- Exit-reason distribution (trail_sl / sl / ranging / macd_rev / time_stop)
+- Exit-reason distribution (trail_sl / sl / ranging_close / macd_rev / time_stop / end_of_data)
 - Funding-skips and divergence distribution
 - Adds-per-cycle distribution
 
@@ -225,27 +229,32 @@ This is the **primary loss-control mechanism** — converts what would be a slow
 ```
 eth-rapid-reversal/
 ├── SKILL.md                    # this file
+├── demo.py                     # one-command deterministic demo (no API key)
 ├── backtest/
+│   ├── agent_hub.py            # CMC Agent Hub data-layer mapping (single dependency)
 │   ├── engine.py               # walk-forward simulator with trailing stop + rolling compound
 │   ├── indicators.py           # RSI/MACD/ADX/EMA/BB/volume (pure pandas)
 │   ├── data_loader.py          # CMC AI Agent Hub fetch (sole data source) → parquet cache
 │   ├── metrics.py              # Sharpe / DD / cycle metrics
 │   ├── run_backtest.py         # CLI entry — produces results/ output
-│   └── results/                # generated artifacts
+│   ├── sweep.py                # parameter sweep + multi-window stability
+│   └── results/                # generated artifacts (trades, cycles, equity, report, sweep)
 ├── notebooks/
 │   └── walkthrough.ipynb       # signal walkthrough on a single day
 ├── tests/
-│   └── test_indicators.py      # 16 unit tests
+│   ├── test_indicators.py      # 16 indicator unit tests
+│   └── test_engine.py          # 6 engine signal-logic + regression tests
 ├── README.md
 ├── requirements.txt
 └── LICENSE
 ```
 
 ### Reproducibility
-- Pin data snapshot hash in `data_loader.py`
+- `CMC_FORCE_SYNTHETIC=1` forces a deterministic synthetic ETH series (used by `demo.py` and `--source synthetic`) so the committed baseline is 100% reproducible with no API key
+- With a previously-fetched cache, the loader reuses the real-ETH snapshot offline (with an age warning) instead of silently swapping to synthetic
 - Seed any randomness (none in v1, deterministic)
-- `requirements.txt`: `pandas`, `numpy`, `matplotlib`, `requests`, `pytest`
-- One-command run: `python backtest/run_backtest.py --days 30 --equity 10000`
+- `requirements.txt`: `pandas`, `numpy`, `matplotlib`, `requests`, `pytest`, `pyarrow`
+- One-command run: `python demo.py` (or `python backtest/run_backtest.py --days 30 --equity 10000`)
 
 ## 11. What This Skill Does NOT Do
 

@@ -236,12 +236,6 @@ How many adds each cycle had (0 = no adds, 5 = maxed out):
 {json.dumps(metrics.get('leg_type_breakdown', {}), indent=2)}
 ```
 
-## Exit Reasons (cycle counts)
-
-```json
-{json.dumps(metrics.get('exit_reason_distribution', {}), indent=2)}
-```
-
 ## Divergence Distribution (signals evaluated)
 
 ```json
