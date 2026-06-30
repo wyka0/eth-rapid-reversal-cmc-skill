@@ -73,22 +73,29 @@ If `CMC_API_KEY` is not set, the backtest falls back to a deterministic syntheti
 
 ## Reproducible baseline (30d, synthetic)
 
-The committed `backtest/results/` were generated with `python demo.py` (deterministic synthetic ETH, no API key) so any judge can reproduce them exactly:
+The committed `backtest/results/` were generated with `python backtest/run_backtest.py --days 30 --source synthetic` (deterministic synthetic ETH, no API key) so any judge can reproduce them exactly:
 
 | Metric | Value |
 |---|---|
 | Cycles | 20 |
-| Total return | +5.27% |
-| Max drawdown | -3.40% |
-| Sharpe (daily) | 4.92 |
-| Cycle win rate | 75.0% |
-| Profit factor | 2.47 |
-| Pay-off ratio | 0.82 |
-| Exits via trailing stop | 15 / 20 |
+| Total return | +4.85% |
+| Max drawdown | -3.41% |
+| Max DD duration | 8.97 days |
+| Sharpe (daily) | 4.73 |
+| Cycle win rate | 70.0% |
+| Profit factor | 2.32 |
+| Pay-off ratio | 0.99 |
+| Exits via trailing stop | 14 / 20 |
 
 On the cached real-ETH snapshot (supplementary, `--source cmc` without a key):
 +6.32%, MaxDD -2.65%, 14 cycles, 78.6% win rate. See `backtest/results/sweep.md`
 for the parameter-sweep and multi-window stability tables.
+
+> **Note on synthetic reproducibility:** the synthetic price series is seeded
+> (deterministic in values), but timestamps end at "now" — so F&G daily lookups
+> can shift by a day across runs, causing minor metric drift (±1-2%). The
+> committed `report.md` is the canonical numbers; `demo.py` may differ slightly
+> from run to run for the same reason.
 
 ## CMC AI Agent Hub data layer
 
@@ -111,7 +118,7 @@ the strategy and engine are surface-agnostic and consume plain pandas objects.
 
 ## Backtest Output
 
-Running the backtest produces four artifacts in `backtest/results/`:
+Running the backtest produces six artifacts in `backtest/results/`:
 
 | File | Content |
 |---|---|
@@ -139,7 +146,7 @@ Running the backtest produces four artifacts in `backtest/results/`:
 | Funding extreme | >0.10%/8h skip, >0.05% halve | |
 | Risk per trade | 1.5% of equity | |
 | Daily loss limit | -5% | Halt until next UTC day |
-| DD circuit breaker | -10% peak-to-trough | Halve leverage for next 10 trades |
+| DD circuit breaker | -10% peak-to-trough | Halve deployed size for next 10 trades |
 | Rolling compound max | 5 additions | Profit-funded scale-ins |
 
 ## Repo Layout

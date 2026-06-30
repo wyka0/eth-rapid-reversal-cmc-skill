@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Run (UTC) | 2026-06-30T20:48:13.842447+00:00 |
+| Run (UTC) | 2026-06-30T20:51:50.970764+00:00 |
 | Window | 30 days |
 | Source | synthetic |
 | Starting equity | $10,000.00 |
